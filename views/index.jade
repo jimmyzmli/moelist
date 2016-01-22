@@ -1,5 +1,6 @@
 extends layout
 
 block content
-  h1= title
-  p Welcome to #{title}
+  each v in views
+    a(href='#{v.origin}', target='_blank')
+      img(src='#{v.url}',width=300)
