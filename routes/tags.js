@@ -16,7 +16,22 @@ router.all('/taglist/', function(req, res, next)
 			      resp.sort();
 			      resp.unshift('all');
 			      redisClient.end();
-			      res.render('taglist', {'tags': resp});
+			      if(req.query.hasOwnProperty('jsonp') || req.query.hasOwnProperty('json'))
+			      {
+				      if(req.query.hasOwnProperty('jsonp'))
+				      {
+					      res.write(req.query.jsonp+'(');
+				      }
+				      res.write(JSON.stringify(resp));
+				      if(req.query.hasOwnProperty('jsonp'))
+				      {
+					      res.write(');');
+				      }
+			      }
+			      else
+			      {
+				      res.render('taglist', {'tags': resp, 'res': res});
+			      }
 			      next();
 		      });
 });
@@ -26,9 +41,15 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
 	var redisClient = redis.createClient();
 	var tag = req.params[0];
 	var views = [];
+	var page = 0;
 	var links;
+	if (req.query.hasOwnProperty('p'))
+	{
+		page = req.query.p;
+	}
+	console.log(page*30);
 	redisClient
-		.sortAsync('tag:[' + tag + ']:links', 'BY', 'link:[*]:meta->updated', 'LIMIT', '0', '30')
+		.sortAsync('tag:[' + tag + ']:links', 'BY', 'link:[*]:meta->updated', 'LIMIT', (page*30)+'', '30')
 		.then(function(resp)
 		      {
 			      links = resp;
@@ -52,7 +73,22 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
 		.then(function(views)
 		      {
 			      redisClient.end();
-			      res.render('list', {'views': views});
+			      if(req.query.hasOwnProperty('jsonp') || req.query.hasOwnProperty('json'))
+			      {
+				      if(req.query.hasOwnProperty('jsonp'))
+				      {
+					      res.write(req.query.jsonp+'(');
+				      }
+				      res.write(JSON.stringify(views));
+				      if(req.query.hasOwnProperty('jsonp'))
+				      {
+					      res.write(');');
+				      }
+			      }
+			      else
+			      {
+				      res.render('list', {'views': views, 'res': res});
+			      }
 			      next();
 		      });
 
