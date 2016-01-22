@@ -2,5 +2,5 @@ extends layout
 
 block content
     each l in tags
-        a(href="/tag/#{encodeURIComponent(l)}", target='_blank')=l
+        a(href="/tag/#{encodeURIComponent(l)}", target='_blank', class='tag')=l
         br
