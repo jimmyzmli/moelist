@@ -1,7 +1,7 @@
 module.exports.IsLinkValid = function(fname)
 {
 	var ext = fname.split('.').pop();
-	if (['jpeg', 'jpg', 'png', 'gif', 'bmp', 'gifv'].indexOf(ext.toLowerCase()) !== -1)
+	if (['jpeg', 'jpg', 'png', 'gif', 'bmp'].indexOf(ext.toLowerCase()) !== -1)
 	{
 		return true;
 	}
@@ -12,4 +12,4 @@ module.exports.IsLinkValid = function(fname)
 
 };
 
-//console.log(module.exports.IsLinkValid('http://imgur.com/random.png'));
+//console.log(module.exports.IsLinkValid('http://imgur.com/random.gifv'));

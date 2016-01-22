@@ -105,10 +105,11 @@ module.exports.LoadRedditLinks = function(redis)
 						      var tags = anitag.FindBracketTags(post.title);
 						      promises.push(redis.saddAsync('tag:[all]:links', post.url));
 						      promises.push(redis.hmsetAsync('link:[' + post.url + ']:meta', 'origin', '//reddit.com' + post.permalink, 'updated', parseInt(post.created)));
-						      if (tags.length > 0)
+						      if (tags.length == 0)
 						      {
-							      promises.push(redis.saddAsync('link:[' + post.url + ']:tags', tags));
+							      tags.push('untagged');
 						      }
+						      promises.push(redis.saddAsync('link:[' + post.url + ']:tags', tags));
 						      for (var k in tags)
 						      {
 							      promises.push(redis.saddAsync('tags', tags[k]));

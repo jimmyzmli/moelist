@@ -51,8 +51,8 @@ module.exports.DeleteBadLinks = function(redisClient)
 	var db = new DB(redisClient);
 	return new Promise(function(resolve, reject)
 	{
-		return redisClient
-			.smembersAsync('tags:[all]:links')
+		redisClient
+			.smembersAsync('tag:[all]:links')
 			.then(function(links)
 			      {
 				      var promises = [];
@@ -76,12 +76,12 @@ module.exports.DeleteBadLinks = function(redisClient)
 			       });
 	});
 };
-var c = redis.createClient();
+var clnt = redis.createClient();
 module.exports
-      .DeleteBadLinks(c)
+      .DeleteBadLinks(clnt)
       .then(function(c)
             {
 	            console.log("Deleted " + c + " urls");
+	            clnt.end();
             })
       .catch(console.log);
-c.end();
