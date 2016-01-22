@@ -36,15 +36,30 @@ jQuery(document)
 					                             "top": $(window).scrollTop(),
 					                             "height": $(window).height()+"px"
 				                             };
+
+				                             var newWidth = $(window).height() * (event.target.width / event.target.height);
+
 				                             if(event.clientX > $(window).width() / 2)
 				                             {
+					                             var max = event.clientX - 35;
+					                             if (newWidth > max)
+					                             {
+					                                 vals['width'] = max + "px";
+						                             vals['height'] = '';
+					                             }
 					                             vals['right'] = $(window).width() - event.clientX + 35;
 				                             }
 				                             else
 				                             {
+					                             var max = $(window).width() - event.clientX - 35;
+					                             if (newWidth > max)
+					                             {
+						                             vals['width'] = max + "px";
+						                             vals['height'] = '';
+					                             }
 					                             vals['left'] = event.clientX + 35;
 				                             }
-				                             $(".popup").css('left','').css('right','').css(vals).attr('src', event.target.src).show();
+				                             $(".popup").css('left','').css('right','').css('height','').css('width','').css(vals).attr('src', event.target.src).show();
 			                             }
 			                             else
 			                             {
