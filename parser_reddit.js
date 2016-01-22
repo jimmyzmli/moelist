@@ -2,6 +2,7 @@ var http = require('http');
 var Promise = require('bluebird');
 var redis = require('redis');
 var anitag = require('./anitag');
+var linkfilter = require('./linkfilter');
 
 Promise.promisifyAll(redis.RedisClient.prototype);
 Promise.promisifyAll(redis.Multi.prototype);
@@ -20,7 +21,7 @@ var PromiseRequest = Promise.method(
 					'statusCode': response.statusCode,
 					'headers': response.headers,
 					'body': '',
-					'trailers': response.trailers,
+					'trailers': response.trailers
 				};
 
 				// Build the body
@@ -96,15 +97,19 @@ module.exports.LoadRedditLinks = function(redis)
 			      {
 				      var promises = [];
 				      // Clean up to standard format
-				      for (i in results)
+				      for (var i in results)
 				      {
 					      var post = results[i].data;
 					      var tags = anitag.FindBracketTags(post.title);
 					      promises.push(redis.saddAsync('tag:[all]:links', post.url));
-					      promises.push(redis.saddAsync('link:[' + post.url + ']:tags', tags));
 					      promises.push(redis.hmsetAsync('link:[' + post.url + ']:meta', 'origin', '//reddit.com' + post.permalink, 'updated', parseInt(post.created)));
-					      for (k in tags)
+					      if(tags.length > 0)
 					      {
+						      promises.push(redis.saddAsync('link:[' + post.url + ']:tags', tags));
+					      }
+					      for (var k in tags)
+					      {
+						      promises.push(redis.saddAsync('tags', tags[k]));
 						      promises.push(redis.saddAsync('tag:[' + tags[k] + ']:links', post.url));
 					      }
 				      }
@@ -120,6 +125,6 @@ module.exports.LoadRedditLinks = function(redis)
 				       reject(err);
 			       });
 	});
-}
+};
 
 module.exports.LoadRedditLinks(redis.createClient()).catch(console.log);
