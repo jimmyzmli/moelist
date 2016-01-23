@@ -27,11 +27,11 @@ app.use('/', tags);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next)
-        {
-	        var err = new Error('Not Found');
-	        err.status = 404;
-	        next(err);
-        });
+{
+    var err = new Error('Not Found');
+    err.status = 404;
+    next(err);
+});
 
 // error handlers
 
@@ -39,21 +39,21 @@ app.use(function(req, res, next)
 // will print stacktrace
 if (app.get('env') === 'development')
 {
-	app.use(function(err, req, res, next)
-	        {
-		        if (!res.headersSent)
-		        {
-			        res.status(err.status || 500);
-			        res.render('error', {
-				        message: err.message,
-				        error: err
-			        });
-		        }
-		        else
-		        {
-			        res.end();
-		        }
-	        });
+    app.use(function(err, req, res, next)
+    {
+        if (!res.headersSent)
+        {
+            res.status(err.status || 500);
+            res.render('error', {
+                message: err.message,
+                error: err
+            });
+        }
+        else
+        {
+            res.end();
+        }
+    });
 }
 
 // production error handler
@@ -70,7 +70,7 @@ if (app.get('env') === 'development')
 
 app.listen(3001, function()
 {
-	console.log("server started...");
+    console.log("server started...");
 });
 
 module.exports = app;

@@ -8,10 +8,11 @@ Promise.promisifyAll(redis.Multi.prototype);
 
 router.use('/', function(req, res, next)
 {
-	if (req.url.slice(-1) === '/') {
-		req.url = '/taglist/';
-	}
-	next();
+    if (req.url.slice(-1) === '/')
+    {
+        req.url = '/taglist/';
+    }
+    next();
 });
 
 module.exports = router;
