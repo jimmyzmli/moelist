@@ -16,7 +16,7 @@ app.set('view engine', 'jade');
 
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
-app.use(logger('dev'));
+//app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
@@ -41,6 +41,8 @@ if (app.get('env') === 'development')
 {
     app.use(function(err, req, res, next)
     {
+        var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        console.log((new Date()).toString() + ": " + ip);
         if (!res.headersSent)
         {
             res.status(err.status || 500);

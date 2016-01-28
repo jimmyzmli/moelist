@@ -47,7 +47,6 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
     {
         page = req.query.p;
     }
-    console.log(page * 30);
     redisClient
         .sortAsync('tag:[' + tag + ']:links', 'BY', 'link:[*]:meta->updated', 'LIMIT', (page * 30) + '', '30', 'DESC')
         .then(function(resp)
