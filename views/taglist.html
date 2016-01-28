@@ -1,9 +1,29 @@
 <div class="container-fluid">
     <div class="row">
-        <ul class="list-group center-block col-sm-3">
+        <div class="form-group col-sm-3 center-block" style="padding-left: 0px;">
+            <input class="form-control input-sm" id="tag-filter" type="text" placeholder="Search tags...">
+        </div>
+    </div>
+    <div class="row">
+        <ul class="list-group center-block col-sm-3" id="tag-list">
             {{#each tags}}
-            <li class="list-group-item"><a href="/tag/{{encodeURI this}}" target='_blank' class='tag'>{{this}}</a></li>
+            <li class="list-group-item tag"><a href="/tag/{{encodeURI this}}" target="_blank">{{this}}</a></li>
             {{/each}}
         </ul>
     </div>
 </div>
+{{> scripts}}
+<script type="text/javascript">
+    jQuery(document).ready(function($)
+    {
+        $("#tag-filter").keyup(function(e)
+        {
+            var term = $("#tag-filter").val().toLowerCase();
+            $("#tag-list .tag").hide();
+            $("#tag-list .tag").filter(function()
+            {
+                return $("a", this).text().replace("-", "").toLowerCase().indexOf(term.replace("-", "")) != -1;
+            }).show();
+        });
+    });
+</script>
