@@ -27,12 +27,12 @@ router.all('/taglist/', function(req, res, next)
                 {
                     res.write(');');
                 }
+                res.end();
             }
             else
             {
                 res.render('taglist', {'tags': resp, 'res': res});
             }
-            next();
         });
 });
 
@@ -83,12 +83,12 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
                 {
                     res.write(');');
                 }
+                res.end();
             }
             else
             {
                 res.render('list', {'views': views, 'res': res});
             }
-            next();
         });
 
 });

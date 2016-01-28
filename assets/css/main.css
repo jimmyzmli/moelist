@@ -7,3 +7,11 @@ a {
     color: #00B7FF;
     display: inline-block;
 }
+
+.center-block {
+    float: none;
+}
+
+.popup {
+    z-index: 10;
+}

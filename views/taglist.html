@@ -1,0 +1,9 @@
+<div class="container-fluid">
+    <div class="row">
+        <ul class="list-group center-block col-sm-3">
+            {{#each tags}}
+            <li class="list-group-item"><a href="/tag/{{encodeURI this}}" target='_blank' class='tag'>{{this}}</a></li>
+            {{/each}}
+        </ul>
+    </div>
+</div>
