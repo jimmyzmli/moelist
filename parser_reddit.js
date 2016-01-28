@@ -3,6 +3,7 @@ var Promise = require('bluebird');
 var redis = require('redis');
 var anitag = require('./anitag');
 var linkfilter = require('./linkfilter');
+var DB = require('./db');
 
 Promise.promisifyAll(redis.RedisClient.prototype);
 Promise.promisifyAll(redis.Multi.prototype);
@@ -45,7 +46,49 @@ var PromiseRequest = Promise.method(
         });
     });
 
-function FetchRedditLinks(subName, type)
+function FetchNewLinks(subName, type, timeFrame, before)
+{
+    return new Promise(function(resolve, reject)
+    {
+        var results = [];
+        return (function MakeRequest(before)
+        {
+            PromiseRequest({
+                host: 'www.reddit.com',
+                port: 80,
+                path: '/r/' + subName + '/' + type + '.json?t=' + timeFrame + '&show=all&limit=100' + (before == null ? '' : '&before=' + before),
+                method: 'GET'
+            })
+                .then(function(resp)
+                {
+                    if (resp['statusCode'] == 200)
+                    {
+                        var respObj = JSON.parse(resp['body']);
+                        results = results.concat(respObj.data.children);
+                        if (respObj.data != null && respObj.data.children.length > 0)
+                        {
+                            MakeRequest(respObj.data.children[0].data.name);
+                        }
+                        else
+                        {
+                            // Finished requests
+                            resolve(results);
+                        }
+                    }
+                    else
+                    {
+                        throw new Error('HTTP error status code ' + resp['statusCode']);
+                    }
+                })
+                .catch(function(error)
+                {
+                    reject(error);
+                });
+        })(before);
+    });
+}
+
+function FetchAllLinks(subName, type, timeFrame)
 {
     // Fetch links from reddit
     return new Promise(function(resolve, reject)
@@ -56,7 +99,7 @@ function FetchRedditLinks(subName, type)
             PromiseRequest({
                 host: 'www.reddit.com',
                 port: 80,
-                path: '/r/' + subName + '/' + type + '.json?t=day&show=all&limit=100' + (after === null ? '' : '&after=' + after),
+                path: '/r/' + subName + '/' + type + '.json?t=' + timeFrame + '&show=all&limit=100' + (after == null ? '' : '&after=' + after),
                 method: 'GET'
             })
                 .then(function(resp)
@@ -65,7 +108,7 @@ function FetchRedditLinks(subName, type)
                     {
                         var respObj = JSON.parse(resp['body']);
                         results = results.concat(respObj.data.children);
-                        if (respObj.data.after !== null)
+                        if (respObj.data != null && respObj.data.after != null)
                         {
                             MakeRequest(respObj.data.after);
                         }
@@ -88,13 +131,41 @@ function FetchRedditLinks(subName, type)
     });
 }
 
-module.exports.LoadRedditLinks = function(redis)
+module.exports.LoadRedditLinks = function(redisClient)
 {
     return new Promise(function(resolve, reject)
     {
-        FetchRedditLinks('awwnime', 'new')
+        var db = new DB(redisClient);
+        redisClient.getAsync('parser:reddit_before_name')
+            .then(function(before)
+            {
+                if (before == null)
+                {
+                    // How much history to fetch, hour, day, week, month, year, all (Please don't put all...)
+                    return FetchAllLinks('awwnime', 'new', 'month')
+                }
+                else
+                {
+                    // How frequent does fetching happen?
+                    return FetchNewLinks('awwnime', 'new', 'hour', before);
+                }
+            })
             .then(function(results)
             {
+                // Update before name
+                if (results.length > 0)
+                {
+                    return Promise.all([Promise.resolve(results), redisClient.setAsync('parser:reddit_before_name', results[0].data.name)]);
+                }
+                else
+                {
+                    return Promise.resolve([results]);
+                }
+            })
+            .then(function(results)
+            {
+                results = results[0];
+                console.log("Fetched " + results.length + " new posts");
                 var promises = [];
                 // Clean up to standard format
                 for (var i in results)
@@ -102,26 +173,13 @@ module.exports.LoadRedditLinks = function(redis)
                     var post = results[i].data;
                     if (linkfilter.IsLinkValid(post.url))
                     {
-                        var tags = anitag.FindBracketTags(post.title);
-                        promises.push(redis.saddAsync('tag:[all]:links', post.url));
-                        promises.push(redis.hmsetAsync('link:[' + post.url + ']:meta', 'origin', '//reddit.com' + post.permalink, 'updated', parseInt(post.created)));
-                        if (tags.length == 0)
-                        {
-                            tags.push('untagged');
-                        }
-                        promises.push(redis.saddAsync('link:[' + post.url + ']:tags', tags));
-                        for (var k in tags)
-                        {
-                            promises.push(redis.saddAsync('tags', tags[k]));
-                            promises.push(redis.saddAsync('tag:[' + tags[k] + ']:links', post.url));
-                        }
+                        promises.push(db.AddLink(post.url, anitag.FindBracketTags(post.title), '//reddit.com' + post.permalink, parseInt(post.created)));
                     }
                 }
                 return Promise.all(promises);
             })
             .then(function()
             {
-                redis.end();
                 resolve();
             })
             .catch(function(err)
@@ -130,5 +188,8 @@ module.exports.LoadRedditLinks = function(redis)
             });
     });
 };
-
-module.exports.LoadRedditLinks(redis.createClient()).catch(console.log);
+var redisClient = redis.createClient();
+module.exports.LoadRedditLinks(redisClient).then(function()
+{
+    redisClient.end();
+}).catch(console.log);

@@ -33,4 +33,23 @@ DB.prototype.DeleteLink = function(link)
         });
 };
 
+DB.prototype.AddLink = function(url, tags, src, updated)
+{
+    var promises = [];
+    var redisClient = this.redisClient;
+    promises.push(redisClient.saddAsync('tag:[all]:links', url));
+    promises.push(redisClient.hmsetAsync('link:[' + url + ']:meta', 'origin', src, 'updated', updated));
+    if (tags.length == 0)
+    {
+        tags.push('untagged');
+    }
+    promises.push(redisClient.saddAsync('link:[' + url + ']:tags', tags));
+    for (var k in tags)
+    {
+        promises.push(redisClient.saddAsync('tags', tags[k]));
+        promises.push(redisClient.saddAsync('tag:[' + tags[k] + ']:links', url));
+    }
+    return Promise.all(promises).catch(console.log);
+}
+
 module.exports = DB;
