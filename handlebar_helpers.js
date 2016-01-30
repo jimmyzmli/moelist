@@ -11,4 +11,4 @@ module.exports.add = function(a, b)
     return a + b;
 };
 
-module.exports.encodeURI = encodeURI;
+module.exports.encodeURI = encodeURIComponent;
