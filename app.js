@@ -17,7 +17,7 @@ app.engine('html', exphbs({
     layoutsDir: "views/",
     partialsDir: "views/",
     defaultLayout: 'layout.html',
-    helpers: require('./handlebar_helpers')
+    helpers: require('./handlebar_helper')
 }));
 app.set('view engine', 'html');
 

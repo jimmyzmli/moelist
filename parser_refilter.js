@@ -2,7 +2,7 @@ var http = require('http');
 var Promise = require('bluebird');
 var redis = require('redis');
 var DB = require('./db');
-var linkfilter = require('./linkfilter');
+var linkfilter = require('./link');
 
 Promise.promisifyAll(redis.RedisClient.prototype);
 Promise.promisifyAll(redis.Multi.prototype);

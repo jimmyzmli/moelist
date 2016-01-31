@@ -1,8 +1,7 @@
 var http = require('http');
 var Promise = require('bluebird');
 var redis = require('redis');
-var anitag = require('./anitag');
-var linkfilter = require('./linkfilter');
+var linkfilter = require('./link');
 var DB = require('./db');
 
 Promise.promisifyAll(redis.RedisClient.prototype);
@@ -168,32 +167,37 @@ function IsPostAlive(subName, postId)
     });
 }
 
-module.exports.LoadRedditLinks = function(redisClient)
+module.exports.LoadRedditLinks = function(redisClient, subreddit)
 {
+    var beforeKey = 'parser:subreddit[' + subreddit + ']:before_name';
     return new Promise(function(resolve, reject)
     {
         var db = new DB(redisClient);
-        redisClient.lrangeAsync('parser:reddit_before_name', 0, 0)
+        db.Ready()
+            .then(function()
+            {
+                return redisClient.lrangeAsync(beforeKey, 0, 0);
+            })
             .then(function(before)
             {
                 if (before.length == 0 || before[0] == null)
                 {
                     // How much history to fetch, hour, day, week, month, year, all (Please don't put all...)
-                    return FetchAllLinks('awwnime', 'new', 'month')
+                    return FetchAllLinks(subreddit, 'new', 'month')
                 }
                 else
                 {
-                    return IsPostAlive('awwnime', before[0])
+                    return IsPostAlive(subreddit, before[0])
                         .then(function(isAlive)
                         {
                             if (isAlive)
                             {
                                 // How frequent does fetching happen?
-                                return FetchNewLinks('awwnime', 'new', 'hour', before);
+                                return FetchNewLinks(subreddit, 'new', 'hour', before);
                             }
                             else
                             {
-                                return redisClient.lpopAsync('parser:reddit_before_name')
+                                return redisClient.lpopAsync(beforeKey)
                                     .then(function()
                                     {
                                         return module.exports.LoadRedditLinks(redisClient);
@@ -212,10 +216,10 @@ module.exports.LoadRedditLinks = function(redisClient)
                 if (results.length > 0)
                 {
                     var redisUpdate = redisClient
-                        .lpushAsync('parser:reddit_before_name', results[0].data.name)
+                        .lpushAsync(beforeKey, results[0].data.name)
                         .then(function()
                         {
-                            return redisClient.ltrim('parser:reddit_before_name', 0, 5);
+                            return redisClient.ltrim(beforeKey, 0, 5);
                         });
                     return Promise.all([Promise.resolve(results), redisUpdate]);
                 }
@@ -227,7 +231,7 @@ module.exports.LoadRedditLinks = function(redisClient)
             .then(function(results)
             {
                 results = results[0];
-                console.log("Fetched " + results.length + " new posts");
+                console.log("Fetched " + results.length + " new posts for " + subreddit);
                 var promises = [];
                 // Clean up to standard format
                 for (var i in results)
@@ -235,7 +239,7 @@ module.exports.LoadRedditLinks = function(redisClient)
                     var post = results[i].data;
                     if (linkfilter.IsLinkValid(post.url))
                     {
-                        promises.push(db.AddLink(post.url, anitag.FindBracketTags(post.title), '//reddit.com' + post.permalink, parseInt(post.created)));
+                        promises.push(db.AddLink(post.url, post.title, 'bracket', 'Reddit:' + subreddit, '//reddit.com' + post.permalink, parseInt(post.created)));
                     }
                 }
                 return Promise.all(promises);
@@ -251,7 +255,13 @@ module.exports.LoadRedditLinks = function(redisClient)
     });
 };
 var redisClient = redis.createClient();
-module.exports.LoadRedditLinks(redisClient).then(function()
-{
-    redisClient.end();
-}).catch(console.log);
+var subReddits = ['awwnime', 'headpats'];
+Promise.map(subReddits, function(sub)
+    {
+        return module.exports.LoadRedditLinks(redisClient, sub)
+    })
+    .then(function()
+    {
+        redisClient.end();
+    })
+    .catch(console.log);

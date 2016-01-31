@@ -14,4 +14,9 @@ module.exports.FindBracketTags = function(str)
     return results;
 };
 
+module.exports.TagScan = function(tagAlg, tagBlob)
+{
+    return module.exports.FindBracketTags(tagBlob);
+};
+
 //console.log(module.exports.FindBracketTags('Making a ponytail [Idolmaster][CindGirls]'));
