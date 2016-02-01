@@ -45,7 +45,7 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
 {
     var redisClient = redis.createClient();
     var db = new DB(redisClient);
-    var tag = req.params[0];
+    var tags = req.params[0].split('+');
     var page = 0;
     if (req.query.hasOwnProperty('p'))
     {
@@ -54,7 +54,7 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
     db.Ready()
         .then(function()
         {
-            return db.GetLinks([tag], page * 30, 30);
+            return db.GetLinks(tags, page * 30, 30);
         })
         .then(function(data)
         {

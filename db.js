@@ -76,33 +76,69 @@ DB.prototype.AddLink = function(url, tagBlob, tagAlg, src, srcLink, updated)
 DB.prototype.GetLinks = function(tags, pStart, pLen)
 {
     var self = this;
+    var tagCombinedKey = 'mtag:[' + tags.join('+') + ']:links';
+    var metaProps = ['src', 'origin', 'updated', '#'];
+    var tagKeys = tags.map(function(t)
+    {
+        return 'tag:[' + t + ']:links';
+    });
     return self.Ready()
         .then(function()
         {
-            var promises = Promise.map(tags, function(tag)
+            if (tags.length > 1)
             {
-                return self.redisClient
-                    .sortAsync('tag:[' + tag + ']:links', 'BY', 'link:[*]:meta->updated', 'LIMIT', parseInt(pStart), parseInt(pLen), 'DESC');
-            });
-            return Promise.reduce(promises, function(p, c)
+                return self.redisClient.sunionstoreAsync(tagCombinedKey, tagKeys);
+            }
+            else
             {
-                return p.concat(c);
-            }, []);
+                tagCombinedKey = 'tag:[' + tags[0] + ']:links';
+                return Promise.resolve(true);
+            }
         })
-        .then(function(links)
+        .then(function()
         {
-            return Promise.map(links, function(l)
-            {
-                return Promise.join(
-                    self.redisClient.smembersAsync('link:[' + l + ']:tags'),
-                    self.redisClient.hgetallAsync('link:[' + l + ']:meta'),
-                    function(tags, meta)
+            var getList = metaProps.map(function(p)
+                {
+                    if (p == '#')
                     {
-                        meta['tags'] = tags;
-                        meta['url'] = l;
-                        return meta;
-                    });
-            });
+                        return ['GET', p];
+                    }
+                    else
+                    {
+                        return ['GET', 'link:[*]:meta->' + p];
+                    }
+                })
+                .reduce(function(p, c)
+                {
+                    return p.concat(c);
+                });
+            return self.redisClient.sortAsync([tagCombinedKey, 'BY', 'link:[*]:meta->updated', 'LIMIT', parseInt(pStart), parseInt(pLen), 'DESC'].concat(getList));
+        })
+        .then(function(res)
+        {
+            // Rename some keys
+            var nameMap = {'#': 'url'};
+            res = res.reduce(function(p, c, i)
+            {
+                var r;
+                var k = metaProps[i % metaProps.length];
+                if (i % metaProps.length == 0)
+                {
+                    r = {};
+                    p.push(r);
+                }
+                else
+                {
+                    r = p[p.length - 1];
+                }
+                if (nameMap.hasOwnProperty(k))
+                {
+                    k = nameMap[k];
+                }
+                r[k] = c;
+                return p;
+            }, []);
+            return Promise.resolve(res);
         });
 };
 
