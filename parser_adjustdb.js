@@ -2,6 +2,7 @@ var http = require('http');
 var Promise = require('bluebird');
 var redis = require('redis');
 var DB = require('./db');
+var anitag = require('./anitag');
 var linkfilter = require('./link');
 
 Promise.promisifyAll(redis.RedisClient.prototype);
@@ -45,6 +46,27 @@ var PromiseRequest = Promise.method(
         });
     });
 
+module.exports.MergeSimilarTags = function(redisClient)
+{
+    var db = new DB(redisClient);
+    return db.Ready()
+        .then(function()
+        {
+            return redisClient.smembersAsync('tags');
+        })
+        .then(function(tags)
+        {
+            var sets = anitag.GetEqualTags(tags);
+            return Promise.map(sets, function(s)
+            {
+                var bestTag = anitag.GetBestTag(s);
+                console.log("Merging tags " + s.join(", ") + " into " + bestTag);
+                return db.MergeTags(bestTag, s);
+                return Promise.resolve(true);
+            });
+        });
+};
+
 module.exports.DeleteBadLinks = function(redisClient)
 {
     var count = 0;
@@ -72,11 +94,21 @@ module.exports.DeleteBadLinks = function(redisClient)
         });
 };
 var redisClient = redis.createClient();
-module.exports
-    .DeleteBadLinks(redisClient)
+Promise.resolve(true)
+    .then(function()
+    {
+        return module.exports.DeleteBadLinks(redisClient);
+    })
     .then(function(c)
     {
         console.log("Deleted " + c + " urls");
+    })
+    .then(function()
+    {
+        return module.exports.MergeSimilarTags(redisClient);
+    })
+    .then(function()
+    {
         redisClient.end();
     })
     .catch(console.log);

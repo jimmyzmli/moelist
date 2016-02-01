@@ -222,6 +222,17 @@ DB.prototype.MergeTags = function(tag, taglist)
         })
         .then(function()
         {
+            return self.redisClient.smembersAsync('tag:[' + tag + ']:links');
+        })
+        .then(function(links)
+        {
+            return Promise.map(links, function(l)
+            {
+                return self.redisClient.saddAsync('link:[' + l + ']:tags', tag);
+            });
+        })
+        .then(function()
+        {
             return self.DeleteTags(taglist);
         })
 };
