@@ -36,7 +36,7 @@ router.all('/taglist/', function(req, res, next)
             }
             else
             {
-                res.render('taglist', {'tags': resp, 'res': res});
+                res.render('taglist', {'page': 'taglist', 'tags': resp, 'res': res});
             }
         });
 });
@@ -74,7 +74,7 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
             }
             else
             {
-                res.render('list', {'views': data, 'res': res});
+                res.render('list', {'page': 'list', 'tagName': req.params[0], 'views': data, 'res': res});
             }
         });
 

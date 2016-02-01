@@ -16,4 +16,25 @@ module.exports.join = function(lst)
     return lst.join(', ');
 };
 
+module.exports.ifEq = function(v1, v2, options)
+{
+    if (v1 === v2)
+    {
+        return options.fn(this);
+    }
+    return options.inverse(this);
+};
+
+module.exports.selectActive = function(a, b)
+{
+    if (a == null || b == null)
+    {
+        return '';
+    }
+    else
+    {
+        return a == b ? 'active' : '';
+    }
+};
+
 module.exports.encodeURI = encodeURIComponent;
