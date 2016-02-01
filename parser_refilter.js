@@ -49,39 +49,34 @@ module.exports.DeleteBadLinks = function(redisClient)
 {
     var count = 0;
     var db = new DB(redisClient);
-    return new Promise(function(resolve, reject)
-    {
-        redisClient
-            .smembersAsync('tag:[all]:links')
-            .then(function(links)
+    return db.Ready()
+        .then(function()
+        {
+            return redisClient.smembersAsync('tag:[all]:links');
+        }).then(function(links)
+        {
+            var promises = [];
+            for (var i in links)
             {
-                var promises = [];
-                for (var i in links)
+                if (!linkfilter.IsLinkValid(links[i]))
                 {
-                    if (!linkfilter.IsLinkValid(links[i]))
-                    {
-                        count++;
-                        promises.push(db.DeleteLink(links[i]));
-                    }
+                    count++;
+                    promises.push(db.DeleteLink(links[i]));
                 }
-                return Promise.all(promises);
-            })
-            .then(function()
-            {
-                resolve(count);
-            })
-            .catch(function(err)
-            {
-                reject(err);
-            });
-    });
+            }
+            return Promise.all(promises);
+        })
+        .then(function()
+        {
+            return Promise.resolve(count);
+        });
 };
-var clnt = redis.createClient();
+var redisClient = redis.createClient();
 module.exports
-    .DeleteBadLinks(clnt)
+    .DeleteBadLinks(redisClient)
     .then(function(c)
     {
         console.log("Deleted " + c + " urls");
-        clnt.end();
+        redisClient.end();
     })
     .catch(console.log);

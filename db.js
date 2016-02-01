@@ -29,12 +29,10 @@ DB.prototype.DeleteLink = function(link)
         })
         .then(function(tags)
         {
-            var promises = [];
-            tags.forEach(function(tag)
+            return Promise.map(tags, function(tag)
             {
-                promises.push(self.redisClient.sremAsync('tag:[' + tag + ']:links', link));
+                return self.redisClient.sremAsync('tag:[' + tag + ']:links', link);
             });
-            return Promise.all(promises);
         })
         .then(function()
         {
@@ -50,6 +48,7 @@ DB.prototype.DeleteLink = function(link)
 
 DB.prototype.AddLink = function(url, tagBlob, tagAlg, src, srcLink, updated)
 {
+    // @TODO handle reposts better
     var self = this;
     return self.Ready()
         .then(function()
@@ -78,6 +77,7 @@ DB.prototype.GetLinks = function(tags, pStart, pLen)
     var self = this;
     var tagCombinedKey = 'mtag:[' + tags.join('+') + ']:links';
     var metaProps = ['src', 'origin', 'updated', '#'];
+    var nameMap = {'#': 'url'};
     var tagKeys = tags.map(function(t)
     {
         return 'tag:[' + t + ']:links';
@@ -112,12 +112,15 @@ DB.prototype.GetLinks = function(tags, pStart, pLen)
                 {
                     return p.concat(c);
                 });
-            return self.redisClient.sortAsync([tagCombinedKey, 'BY', 'link:[*]:meta->updated', 'LIMIT', parseInt(pStart), parseInt(pLen), 'DESC'].concat(getList));
+            var limList = ['LIMIT', parseInt(pStart), parseInt(pLen)];
+            if (pLen <= 0 || pStart < 0 || pLen == null || pStart == null)
+            {
+                limList = [];
+            }
+            return self.redisClient.sortAsync([tagCombinedKey, 'BY', 'link:[*]:meta->updated'].concat(limList).concat(['DESC']).concat(getList));
         })
         .then(function(res)
         {
-            // Rename some keys
-            var nameMap = {'#': 'url'};
             res = res.reduce(function(p, c, i)
             {
                 var r;
@@ -142,12 +145,7 @@ DB.prototype.GetLinks = function(tags, pStart, pLen)
         });
 };
 
-DB.prototype.GetTags = function()
-{
-
-};
-
-DB.prototype.MergeTags = function(tag, taglist)
+DB.prototype.DeleteTags = function(taglist)
 {
     var self = this;
     return self.Ready()
@@ -155,6 +153,62 @@ DB.prototype.MergeTags = function(tag, taglist)
         {
             return self.redisClient.sremAsync('tags', taglist);
         })
+        .then(function()
+        {
+            return self.GetLinks(taglist);
+        })
+        .then(function(links)
+        {
+            return Promise.props({
+                delRes: Promise.map(links, function(v)
+                {
+                    return self.redisClient.sremAsync('link:[' + v.url + ']:tags', taglist);
+                }),
+                links: links
+            });
+        })
+        .then(function(r)
+        {
+            var links = r.links;
+            return Promise.map(links, function(v)
+            {
+                return Promise.props({tagCount: self.redisClient.scardAsync('link:[' + v.url + ']:tags'), url: v.url});
+            });
+        })
+        .then(function(results)
+        {
+            var promises = [];
+            results.forEach(function(r)
+            {
+                if (r.tagCount == 0)
+                {
+                    promises.push(self.redisClient.saddAsync('link:[' + r.url + ']:tags', 'untagged'));
+                    promises.push(self.redisClient.saddAsync('tag:[untagged]:links', r.url));
+                }
+            });
+            return Promise.all(promises);
+        })
+        .then(function()
+        {
+            var tagKeys = taglist.reduce(function(p, c)
+            {
+                return p.concat(PROPS_TAG.map(function(prop)
+                {
+                    return 'tag:[' + c + ']:' + prop;
+                }));
+            }, []);
+            return self.redisClient.delAsync(tagKeys);
+        })
+};
+
+DB.prototype.MergeTags = function(tag, taglist)
+{
+    var self = this;
+    if (taglist.indexOf(tag) != -1)
+    {
+        taglist.splice(taglist.indexOf(tag), 1);
+    }
+    return self.Ready()
         .then(function()
         {
             return Promise.all(PROPS_TAG.map(function(p)
@@ -168,8 +222,8 @@ DB.prototype.MergeTags = function(tag, taglist)
         })
         .then(function()
         {
-            return Promise.resolve(true);
-        });
+            return self.DeleteTags(taglist);
+        })
 };
 
 module.exports = DB;
