@@ -76,8 +76,8 @@ DB.prototype.GetLinks = function(tags, pStart, pLen)
 {
     var self = this;
     var tagCombinedKey = 'mtag:[' + tags.join('+') + ']:links';
-    var metaProps = ['src', 'origin', 'updated', '#'];
-    var nameMap = {'#': 'url'};
+    var metaProps = ['src', 'origin', 'updated'];
+    var linkProps = metaProps.concat(['url']);
     var tagKeys = tags.map(function(t)
     {
         return 'tag:[' + t + ']:links';
@@ -99,19 +99,13 @@ DB.prototype.GetLinks = function(tags, pStart, pLen)
         {
             var getList = metaProps.map(function(p)
                 {
-                    if (p == '#')
-                    {
-                        return ['GET', p];
-                    }
-                    else
-                    {
-                        return ['GET', 'link:[*]:meta->' + p];
-                    }
+                    return ['GET', 'link:[*]:meta->' + p];
                 })
                 .reduce(function(p, c)
                 {
                     return p.concat(c);
                 });
+            getList = getList.concat(['GET', '#']);
             var limList = ['LIMIT', parseInt(pStart), parseInt(pLen)];
             if (pLen <= 0 || pStart < 0 || pLen == null || pStart == null)
             {
@@ -124,8 +118,8 @@ DB.prototype.GetLinks = function(tags, pStart, pLen)
             res = res.reduce(function(p, c, i)
             {
                 var r;
-                var k = metaProps[i % metaProps.length];
-                if (i % metaProps.length == 0)
+                var k = linkProps[i % linkProps.length];
+                if (i % linkProps.length == 0)
                 {
                     r = {};
                     p.push(r);
@@ -134,14 +128,25 @@ DB.prototype.GetLinks = function(tags, pStart, pLen)
                 {
                     r = p[p.length - 1];
                 }
-                if (nameMap.hasOwnProperty(k))
-                {
-                    k = nameMap[k];
-                }
                 r[k] = c;
                 return p;
             }, []);
             return Promise.resolve(res);
+        })
+        .then(function(res)
+        {
+            var tags = Promise.map(res, function(r)
+            {
+                return self.redisClient.smembersAsync('link:[' + r.url + ']:tags');
+            });
+            return Promise.join(res, tags, function(r, t)
+            {
+                return r.map(function(row, i)
+                {
+                    row['tags'] = t[i];
+                    return row;
+                });
+            });
         });
 };
 

@@ -15,3 +15,7 @@ a {
 .popup {
     z-index: 10;
 }
+
+#popup-modal .modal-dialog {
+    margin-top: 0px;
+}

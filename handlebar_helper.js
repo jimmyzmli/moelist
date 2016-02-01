@@ -11,4 +11,9 @@ module.exports.add = function(a, b)
     return a + b;
 };
 
+module.exports.join = function(lst)
+{
+    return lst.join(', ');
+};
+
 module.exports.encodeURI = encodeURIComponent;

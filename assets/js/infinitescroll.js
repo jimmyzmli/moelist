@@ -38,6 +38,7 @@ jQuery(document)
                 }
             });
             flushRow();
+            window.registerEvents();
         }
 
         ReflowRows();
@@ -56,54 +57,14 @@ jQuery(document)
                     var $temp = $(".link:first");
                     for (var i in data)
                     {
-                        var $newLink = $temp.clone(true, true);
-                        $newLink.attr('href', data[i]['origin']);
+                        var $newLink = $temp.clone();
+                        $newLink.attr('data-origin', data[i]['origin']).attr('data-src', data[i]['src']).attr('title', data[i]['tags'].join(', '));
                         $('img', $newLink).attr('src', data[i]['url']);
                         $('#img-view').append($newLink);
                     }
                     ReflowRows();
                     isLoading = false;
                 }, 'json');
-            }
-        });
-
-        $(document).mousemove(function(event)
-        {
-            if ($(event.target).prop("tagName") == "IMG" && !$(event.target).hasClass('popup'))
-            {
-                var vals = {
-                    "position": "absolute",
-                    "top": $(window).scrollTop(),
-                    "height": $(window).height() + "px"
-                };
-
-                var newWidth = $(window).height() * (event.target.width / event.target.height);
-
-                if (event.clientX > $(window).width() / 2)
-                {
-                    var max = event.clientX - 35;
-                    if (newWidth > max)
-                    {
-                        vals['width'] = max + "px";
-                        vals['height'] = '';
-                    }
-                    vals['right'] = $(window).width() - event.clientX + 35;
-                }
-                else
-                {
-                    var max = $(window).width() - event.clientX - 35;
-                    if (newWidth > max)
-                    {
-                        vals['width'] = max + "px";
-                        vals['height'] = '';
-                    }
-                    vals['left'] = event.clientX + 35;
-                }
-                $(".popup").css('left', '').css('right', '').css('height', '').css('width', '').css(vals).attr('src', event.target.src).show();
-            }
-            else
-            {
-                $(".popup").hide();
             }
         });
     });

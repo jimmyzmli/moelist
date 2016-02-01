@@ -1,8 +1,100 @@
-<img class="popup"/>
+<!--<img id="popup-img"/>-->
+<!-- Modal -->
+<div id="popup-modal" class="modal fade" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><a target="_blank"></a></h4>
+            </div>
+            <div class="modal-body">
+                <img width="800" class="center-block" style="float:none"/>
+            </div>
+        </div>
+
+    </div>
+</div>
 <div class="container" id="img-view">
     {{#each views}}
-    <a href="{{origin}}" target="_blank" class="link col-sm-3"><img src="{{url}}" class="img-thumbnail img-responsive"/></a>
+    <a href="javascript:void(0);" class="link col-sm-3" data-toggle="tooltip" data-origin="{{origin}}"
+       data-src="{{src}}"
+       title="{{join tags}}">
+        <img src="{{url}}" class="img-thumbnail img-responsive"/>
+    </a>
     {{/each}}
 </div>
 {{> scripts}}
+<script type="text/javascript">
+    jQuery(document)
+            .ready(function($)
+            {
+                window.registerEvents = function()
+                {
+                    $(".link").tooltip();
+                    $(".link").click(function()
+                    {
+                        var $img = $("img", this);
+                        //$("#img-view").css("visibility", "hidden");
+                        $("#popup-modal img").attr('src', $img.attr('src'));
+                        $("#popup-modal .modal-title a").attr("href", $(this).attr("data-origin")).text($(this).attr("data-src"));
+                        $(this).tooltip("hide");
+                        $("#popup-modal").modal({keyboard: true});
+                    });
+                    var curScroll;
+                    $(document)
+                            .on('hidden.bs.modal', '.modal', function(evt)
+                            {
+                                $(window).scrollTop(curScroll);
+                                //$("#img-view").css("visibility", "");
+                            })
+                            .on('show.bs.modal', '.modal', function()
+                            {
+                                curScroll = $(window).scrollTop();
+                            });
+                };
+                $(document).mousemove(function(event)
+                {
+                    if (false)
+                    {
+                        if ($(event.target).prop("tagName") == "IMG" && !$(event.target).hasClass('popup'))
+                        {
+                            var vals = {
+                                "position": "absolute",
+                                "top": $(window).scrollTop(),
+                                "height": $(window).height() + "px"
+                            };
+
+                            var newWidth = $(window).height() * (event.target.width / event.target.height);
+
+                            if (event.clientX > $(window).width() / 2)
+                            {
+                                var max = event.clientX - 35;
+                                if (newWidth > max)
+                                {
+                                    vals['width'] = max + "px";
+                                    vals['height'] = '';
+                                }
+                                vals['right'] = $(window).width() - event.clientX + 35;
+                            }
+                            else
+                            {
+                                var max = $(window).width() - event.clientX - 35;
+                                if (newWidth > max)
+                                {
+                                    vals['width'] = max + "px";
+                                    vals['height'] = '';
+                                }
+                                vals['left'] = event.clientX + 35;
+                            }
+                            $("#popup").css('left', '').css('right', '').css('height', '').css('width', '').css(vals).attr('src', event.target.src).attr('alt', event.target.alt).show();
+                        }
+                        else
+                        {
+                            $("#popup").hide();
+                        }
+                    }
+                });
+            });
+</script>
 <script src='/assets/js/infinitescroll.js?'></script>
