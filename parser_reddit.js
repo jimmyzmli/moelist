@@ -77,7 +77,7 @@ function FetchLinks(subName, type, timeFrame, getNextLinkCb)
                     }
                     else
                     {
-                        throw new Error('HTTP error status code ' + resp['statusCode']);
+                        reject('HTTP error status code ' + resp['statusCode']);
                     }
                 })
                 .catch(function(error)
@@ -260,8 +260,8 @@ Promise.map(subReddits, function(sub)
     {
         return module.exports.LoadRedditLinks(redisClient, sub)
     })
-    .then(function()
+    .catch(console.log)
+    .finally(function()
     {
         redisClient.end();
-    })
-    .catch(console.log);
+    });
