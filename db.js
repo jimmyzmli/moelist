@@ -6,6 +6,26 @@ var PROPS_TAG = ['links'];
 var PROPS_LINK = ['meta', 'tags', 'tagmeta'];
 var DB_NUM = 3;
 
+function GetSortResultReduce(props)
+{
+    return function(p, c, i)
+    {
+        var r;
+        var k = props[i % props.length];
+        if (i % props.length == 0)
+        {
+            r = {};
+            p.push(r);
+        }
+        else
+        {
+            r = p[p.length - 1];
+        }
+        r[k] = c;
+        return p;
+    };
+}
+
 var DB = function(redis)
 {
     var self = this;
@@ -22,28 +42,39 @@ DB.prototype.DeleteLink = function(link)
 {
     var self = this;
     // Remove link from tags
-    return self.Ready()
-        .then(function()
-        {
-            return self.redisClient.smembersAsync('link:[' + link + ']:tags');
-        })
-        .then(function(tags)
-        {
-            return Promise.map(tags, function(tag)
+    return new Promise(function(resolve, reject)
+    {
+        self.Ready()
+            .then(function()
             {
-                return self.redisClient.sremAsync('tag:[' + tag + ']:links', link);
-            });
-        })
-        .then(function()
-        {
-            var promises = [];
-            PROPS_LINK.forEach(function(p)
+                return self.redisClient.smembersAsync('link:[' + link + ']:tags');
+            })
+            .then(function(tags)
             {
-                promises.push(self.redisClient.delAsync('link:[' + link + ']:' + p));
+                if (tags.length == 0)
+                {
+                    resolve(false);
+                }
+                return Promise.map(tags, function(tag)
+                {
+                    return self.redisClient.sremAsync('tag:[' + tag + ']:links', link);
+                });
+            })
+            .then(function()
+            {
+                var promises = [];
+                PROPS_LINK.forEach(function(p)
+                {
+                    promises.push(self.redisClient.delAsync('link:[' + link + ']:' + p));
+                });
+                promises.push(self.redisClient.sremAsync('tag:[all]:links', link));
+                return Promise.all(promises);
+            })
+            .then(function()
+            {
+                resolve(true);
             });
-            promises.push(self.redisClient.sremAsync('tag:[all]:links', link));
-            return Promise.all(promises);
-        });
+    });
 };
 
 DB.prototype.AddLink = function(url, tagBlob, tagAlg, flags, src, srcLink, updated)
@@ -73,6 +104,61 @@ DB.prototype.AddLink = function(url, tagBlob, tagAlg, flags, src, srcLink, updat
                 promises.push(self.redisClient.saddAsync('flag:[' + flags[i] + ']:links', url));
             }
             return Promise.all(promises).catch(console.log);
+        });
+};
+
+DB.prototype.UpdateTags = function()
+{
+    var self = this;
+    var props = ['blob', 'alg', 'link'];
+    return self.Ready()
+        .then(function()
+        {
+            return self.redisClient.smembersAsync('tags');
+        })
+        .then(function(tags)
+        {
+            if (tags.length > 0)
+            {
+                return self.DeleteTags(tags);
+            }
+            else
+            {
+                return Promise.resolve(true);
+            }
+        })
+        .then(function()
+        {
+            return self.redisClient.sortAsync(['tag:[all]:links', 'BY', 'nosort', 'GET', 'link:[*]:tagmeta->blob', 'GET', 'link:[*]:tagmeta->alg', 'GET', '#']);
+        })
+        .then(function(res)
+        {
+            var promises = [];
+            var alltags = {};
+            res = res.reduce(GetSortResultReduce(props), []);
+            res.forEach(function(r)
+            {
+                var tags = anitag.TagScan(r.alg, r.blob);
+                if (tags.length == 0)
+                {
+                    tags.push('untagged');
+                }
+                promises.push(self.redisClient.multi().del('link:[' + r.link + ']:tags').sadd(['link:[' + r.link + ']:tags'].concat(tags)).execAsync());
+                tags.forEach(function(t)
+                {
+                    if (alltags[t] == null)
+                    {
+                        alltags[t] = [];
+                    }
+                    alltags[t].push(r.link);
+                });
+            });
+            promises.push(self.redisClient.saddAsync(['tags'].concat(Object.keys(alltags))));
+            Object.keys(alltags).forEach(function(t)
+            {
+                promises.push(self.redisClient.saddAsync(['tag:[' + t + ']:links'].concat(alltags[t])));
+            });
+            return Promise.all(promises);
         });
 };
 
@@ -140,22 +226,7 @@ DB.prototype.GetLinks = function(tags, flags, pStart, pLen)
         })
         .then(function(res)
         {
-            res = res.reduce(function(p, c, i)
-            {
-                var r;
-                var k = linkProps[i % linkProps.length];
-                if (i % linkProps.length == 0)
-                {
-                    r = {};
-                    p.push(r);
-                }
-                else
-                {
-                    r = p[p.length - 1];
-                }
-                r[k] = c;
-                return p;
-            }, []);
+            res = res.reduce(GetSortResultReduce(linkProps), []);
             return Promise.resolve(res);
         })
         .then(function(res)
@@ -177,6 +248,18 @@ DB.prototype.GetLinks = function(tags, flags, pStart, pLen)
 
 DB.prototype.DeleteTags = function(taglist)
 {
+    if (taglist.indexOf('untagged') != -1)
+    {
+        taglist.splice(taglist.indexOf('untagged'), 1);
+    }
+    if (taglist.indexOf('all') != -1)
+    {
+        taglist.splice(taglist.indexOf('all'), 1);
+    }
+    if (taglist.length == 0)
+    {
+        return Promise.resolve(true);
+    }
     var self = this;
     return self.Ready()
         .then(function()
@@ -185,7 +268,7 @@ DB.prototype.DeleteTags = function(taglist)
         })
         .then(function()
         {
-            return self.GetLinks(taglist);
+            return self.GetLinks(taglist, []);
         })
         .then(function(links)
         {

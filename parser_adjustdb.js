@@ -62,7 +62,6 @@ module.exports.MergeSimilarTags = function(redisClient)
                 var bestTag = anitag.GetBestTag(s);
                 console.log("Merging tags " + s.join(", ") + " into " + bestTag);
                 return db.MergeTags(bestTag, s);
-                return Promise.resolve(true);
             });
         });
 };
