@@ -8,10 +8,6 @@ a {
     display: inline-block;
 }
 
-.center-block {
-    float: none;
-}
-
 .popup {
     z-index: 10;
 }
@@ -30,6 +26,15 @@ a {
 #img-view,
 #tag-view {
     margin-top: 80px;
+}
+
+/* Bootstrap fixes */
+.modal.fade.in {
+    transform: translate3d(0, 0, 0);
+}
+
+.center-block {
+    float: none;
 }
 
 /* http://meyerweb.com/eric/tools/css/reset/

@@ -1,6 +1,6 @@
 <!--<img id="popup-img"/>-->
 <!-- Modal -->
-<div id="popup-modal" class="modal fade" role="dialog">
+<div id="popup-modal" class="modal fade" role="dialog" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <!-- Modal content-->
         <div class="modal-content">
@@ -17,9 +17,7 @@
 </div>
 <div class="container" id="img-view">
     {{#each views}}
-    <a href="javascript:void(0);" class="link col-sm-3" data-toggle="tooltip" data-origin="{{origin}}"
-       data-src="{{src}}"
-       title="{{join tags}}">
+    <a href="javascript:void(0);" class="link col-sm-3" data-toggle="tooltip" data-origin="{{origin}}" data-src="{{src}}" title="{{join tags}}" data-toggle="modal" data-target="#popup-modal">
         <img src="{{url}}" class="img-thumbnail img-responsive"/>
     </a>
     {{/each}}
@@ -29,6 +27,10 @@
     jQuery(document)
             .ready(function($)
             {
+                $('body').mousedown(function(e)
+                {
+                    if (e.button == 1)return false
+                });
                 window.registerEvents = function()
                 {
                     $(".link").tooltip();
@@ -41,17 +43,6 @@
                         $(this).tooltip("hide");
                         $("#popup-modal").modal({keyboard: true});
                     });
-                    var curScroll;
-                    $(document)
-                            .on('hidden.bs.modal', '.modal', function(evt)
-                            {
-                                $(window).scrollTop(curScroll);
-                                //$("#img-view").css("visibility", "");
-                            })
-                            .on('show.bs.modal', '.modal', function()
-                            {
-                                curScroll = $(window).scrollTop();
-                            });
                 };
                 $(document).mousemove(function(event)
                 {
