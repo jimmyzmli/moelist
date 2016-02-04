@@ -140,7 +140,7 @@ function IsPostAlive(subName, postId)
                     }
                     else
                     {
-                        resolve(false);
+                        resolve(true);
                     }
                 }
                 else
