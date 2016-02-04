@@ -167,7 +167,7 @@ function IsPostAlive(subName, postId)
     });
 }
 
-module.exports.LoadRedditLinks = function(redisClient, subreddit)
+module.exports.LoadRedditLinks = function(redisClient, subreddit, flags)
 {
     var beforeKey = 'parser:subreddit[' + subreddit + ']:before_name';
     return new Promise(function(resolve, reject)
@@ -239,7 +239,7 @@ module.exports.LoadRedditLinks = function(redisClient, subreddit)
                     var post = results[i].data;
                     if (linkfilter.IsLinkValid(post.url))
                     {
-                        promises.push(db.AddLink(post.url, post.title, 'bracket', 'Reddit:' + subreddit, '//reddit.com' + post.permalink, parseInt(post.created)));
+                        promises.push(db.AddLink(post.url, post.title, 'bracket', flags, 'Reddit:' + subreddit, '//reddit.com' + post.permalink, parseInt(post.created)));
                     }
                 }
                 return Promise.all(promises);
@@ -255,10 +255,20 @@ module.exports.LoadRedditLinks = function(redisClient, subreddit)
     });
 };
 var redisClient = redis.createClient();
-var subReddits = ['awwnime', 'headpats'];
-Promise.map(subReddits, function(sub)
+var subReddits = {
+    'awwnime': [],
+    'headpats': [],
+    'imouto': [],
+    'ZettaiRyouiki': [],
+    'k_on': [],
+    'animelegs': ['18+'],
+    'pantsu': ['18+'],
+    'ecchi': ['18+', 'porn'],
+    'sukebei': ['18+', 'porn']
+};
+Promise.map(Object.keys(subReddits), function(sub)
     {
-        return module.exports.LoadRedditLinks(redisClient, sub)
+        return module.exports.LoadRedditLinks(redisClient, sub, subReddits[sub]);
     })
     .catch(console.log)
     .finally(function()

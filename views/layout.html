@@ -9,15 +9,23 @@
 <body>
 <nav class="navbar navbar-default" data-spy="affix" data-offset-top="0">
     <div class="container-fluid">
-        <div class="navbar-header">
-            <a class="navbar-brand" href="javascript:void(0);return false;">Moelist</a>
+        <div class="col-xs-10">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="javascript:void(0);return false;">Moelist</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li class="{{selectActive page 'taglist'}}"><a href="/">All tags</a></li>
+                {{#ifEq page 'list'}}
+                <li class="{{selectActive page 'list'}}"><a href="/">{{tagName}}</a></li>
+                {{/ifEq}}
+            </ul>
         </div>
-        <ul class="nav navbar-nav">
-            <li class="{{selectActive page 'taglist'}}"><a href="/">All tags</a></li>
-            {{#ifEq page 'list'}}
-            <li class="{{selectActive page 'list'}}"><a href="/">{{tagName}}</a></li>
-            {{/ifEq}}
-        </ul>
+        <div id="options" class="col-xs-2">
+            <div class="checkbox">
+                <label style="line-height:19px;margin-right: 10px;"><input type="checkbox" value="" onclick="Cookies.set('isAdult', this.checked);location.reload();" {{{selectText cookies.isAdult 'true' 'checked="true"' ''}}}>18+ Content</label>
+                <label style="line-height:19px"><input type="checkbox" value="" onclick="Cookies.set('iWantPorn', this.checked);location.reload();" {{{selectText cookies.iWantPorn 'true' 'checked="true"' ''}}}>Literally Porn</label>
+            </div>
+        </div>
     </div>
 </nav>
 {{{body}}}

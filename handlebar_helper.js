@@ -37,4 +37,16 @@ module.exports.selectActive = function(a, b)
     }
 };
 
+module.exports.selectText = function(a, b, trueText, falseText)
+{
+    if (a == null || b == null)
+    {
+        return falseText;
+    }
+    else
+    {
+        return a == b ? trueText : falseText;
+    }
+};
+
 module.exports.encodeURI = encodeURIComponent;

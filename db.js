@@ -46,7 +46,7 @@ DB.prototype.DeleteLink = function(link)
         });
 };
 
-DB.prototype.AddLink = function(url, tagBlob, tagAlg, src, srcLink, updated)
+DB.prototype.AddLink = function(url, tagBlob, tagAlg, flags, src, srcLink, updated)
 {
     // @TODO handle reposts better
     var self = this;
@@ -68,30 +68,55 @@ DB.prototype.AddLink = function(url, tagBlob, tagAlg, src, srcLink, updated)
                 promises.push(self.redisClient.saddAsync('tags', tags[k]));
                 promises.push(self.redisClient.saddAsync('tag:[' + tags[k] + ']:links', url));
             }
+            for (var i in flags)
+            {
+                promises.push(self.redisClient.saddAsync('flag:[' + flags[i] + ']:links', url));
+            }
             return Promise.all(promises).catch(console.log);
         });
 };
 
-DB.prototype.GetLinks = function(tags, pStart, pLen)
+DB.prototype.GetLinks = function(tags, flags, pStart, pLen)
 {
     var self = this;
-    var tagCombinedKey = 'mtag:[' + tags.join('+') + ']:links';
+    var tagCombinedKey = 'mtag:[' + tags.join('+') + ']:flags[' + flags.join('+') + ']:links';
     var metaProps = ['src', 'origin', 'updated'];
     var linkProps = metaProps.concat(['url']);
     var tagKeys = tags.map(function(t)
     {
         return 'tag:[' + t + ']:links';
     });
+    var flagKeys = flags.map(function(f)
+    {
+        if (f.length > 0 && f[0] == "-")
+        {
+            return "flag:[" + f.substring(1) + "]:links";
+        }
+    }).filter(function(f)
+    {
+        return f != null;
+    });
     return self.Ready()
         .then(function()
         {
-            if (tags.length > 1)
+            if (tagKeys.length > 1 || flagKeys.length > 0)
             {
                 return self.redisClient.sunionstoreAsync(tagCombinedKey, tagKeys);
             }
             else
             {
                 tagCombinedKey = 'tag:[' + tags[0] + ']:links';
+                return Promise.resolve(true);
+            }
+        })
+        .then(function()
+        {
+            if (flagKeys.length > 0)
+            {
+                return self.redisClient.sdiffstoreAsync(tagCombinedKey, [tagCombinedKey].concat(flagKeys));
+            }
+            else
+            {
                 return Promise.resolve(true);
             }
         })

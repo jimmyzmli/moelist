@@ -36,7 +36,7 @@ router.all('/taglist/', function(req, res, next)
             }
             else
             {
-                res.render('taglist', {'page': 'taglist', 'tags': resp, 'res': res});
+                res.render('taglist', {'page': 'taglist', 'cookies': req.cookies, 'tags': resp, 'res': res});
             }
         });
 });
@@ -54,7 +54,16 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
     db.Ready()
         .then(function()
         {
-            return db.GetLinks(tags, page * 30, 30);
+            var flags = ['-18+', '-porn'];
+            if (req.cookies.isAdult == "true")
+            {
+                flags = ['-porn'];
+            }
+            if (req.cookies.iWantPorn == "true")
+            {
+                flags = [];
+            }
+            return db.GetLinks(tags, flags, page * 30, 30);
         })
         .then(function(data)
         {
@@ -74,7 +83,13 @@ router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
             }
             else
             {
-                res.render('list', {'page': 'list', 'tagName': req.params[0], 'views': data, 'res': res});
+                res.render('list', {
+                    'page': 'list',
+                    'cookies': req.cookies,
+                    'tagName': req.params[0],
+                    'views': data,
+                    'res': res
+                });
             }
         });
 
