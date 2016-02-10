@@ -51,14 +51,17 @@ DB.prototype.DeleteLink = function(link)
             })
             .then(function(tags)
             {
-                if (tags.length == 0)
-                {
-                    resolve(false);
-                }
-                return Promise.map(tags, function(tag)
-                {
-                    return self.redisClient.sremAsync('tag:[' + tag + ']:links', link);
+                return Promise.props({
+                    tags: tags,
+                    res: Promise.map(tags, function(tag)
+                    {
+                        return self.redisClient.sremAsync('tag:[' + tag + ']:links', link);
+                    })
                 });
+            })
+            .then(function(r)
+            {
+                return self.DeleteEmptyTags(r.tags);
             })
             .then(function()
             {
@@ -347,6 +350,35 @@ DB.prototype.MergeTags = function(tag, taglist)
         .then(function()
         {
             return self.DeleteTags(taglist);
+        })
+};
+
+DB.prototype.DeleteEmptyTags = function(tags)
+{
+    var self = this;
+    return self.Ready()
+        .then(function()
+        {
+            return Promise.map(tags, function(t)
+            {
+                return Promise.props({name: t, len: self.redisClient.scardAsync('tag:[' + t + ']:links')});
+            });
+        })
+        .then(function(tags)
+        {
+            var emptyTags = tags.filter(function(t)
+            {
+                return t.len == 0;
+            });
+            var rmTagPromise = Promise.map(emptyTags, function(t)
+            {
+                return Promise.all([
+                    self.redisClient.srem('tags', t.name),
+                    Promise.map(PROPS_TAG, function(p)
+                    {
+                        return self.redisClient.delAsync('tag:[' + t.name + ']:' + p);
+                    })]);
+            });
         })
 };
 

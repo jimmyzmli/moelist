@@ -92,6 +92,21 @@ module.exports.DeleteBadLinks = function(redisClient)
             return Promise.resolve(count);
         });
 };
+
+module.exports.DeleteEmptyTags = function(redisClient)
+{
+    var db = new DB(redisClient);
+    return db.Ready()
+        .then(function()
+        {
+            return redisClient.smembersAsync('tags');
+        })
+        .then(function(tags)
+        {
+            return db.DeleteEmptyTags(tags);
+        });
+};
+
 var redisClient = redis.createClient();
 Promise.resolve(true)
     .then(function()
@@ -105,6 +120,10 @@ Promise.resolve(true)
     .then(function()
     {
         return module.exports.MergeSimilarTags(redisClient);
+    })
+    .then(function()
+    {
+        return module.exports.DeleteEmptyTags(redisClient);
     })
     .then(function()
     {
