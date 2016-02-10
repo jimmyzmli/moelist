@@ -3,9 +3,11 @@ var Promise = require('bluebird');
 var redis = require('redis');
 var linkfilter = require('./link');
 var DB = require('./db');
+var Entities = require('html-entities').XmlEntities;
 
 Promise.promisifyAll(redis.RedisClient.prototype);
 Promise.promisifyAll(redis.Multi.prototype);
+var entities = new Entities();
 
 var PromiseRequest = Promise.method(
     function(options)
@@ -239,7 +241,7 @@ module.exports.LoadRedditLinks = function(redisClient, subreddit, flags)
                     var post = results[i].data;
                     if (linkfilter.IsLinkValid(post.url))
                     {
-                        promises.push(db.AddLink(post.url, post.title, 'bracket', flags, 'Reddit:' + subreddit, '//reddit.com' + post.permalink, parseInt(post.created)));
+                        promises.push(db.AddLink(post.url, entities.decode(post.title), 'bracket', flags, 'Reddit:' + subreddit, '//reddit.com' + post.permalink, parseInt(post.created)));
                     }
                 }
                 return Promise.all(promises);

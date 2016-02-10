@@ -288,6 +288,23 @@ DB.prototype.AddUntagged = function(links)
         });
 };
 
+DB.prototype.GetTags = function()
+{
+    var self = this;
+    return self.Ready()
+        .then(function()
+        {
+            return self.redisClient.smembersAsync('tags');
+        })
+        .then(function(tags)
+        {
+            return Promise.map(tags, function(t)
+            {
+                return Promise.props({name: t, count: self.redisClient.scardAsync('tag:[' + t + ']:links')});
+            })
+        });
+};
+
 DB.prototype.DeleteTags = function(taglist)
 {
     if (taglist.indexOf('all') != -1)

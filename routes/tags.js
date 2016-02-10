@@ -14,11 +14,20 @@ router.all('/taglist/', function(req, res, next)
     db.Ready()
         .then(function()
         {
-            return redisClient.smembersAsync('tags');
+            return db.GetTags();
         })
-        .then(function(resp)
+        .then(function(tags)
         {
+            tags = tags.filter(function(t)
+            {
+                return t.name != 'untagged' && t.count >= 1;
+            });
+            var resp = tags.map(function(t)
+            {
+                return t.name;
+            });
             resp.sort();
+            resp.unshift('untagged');
             resp.unshift('all');
             redisClient.end();
             if (req.query.hasOwnProperty('jsonp') || req.query.hasOwnProperty('json'))
