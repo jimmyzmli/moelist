@@ -107,26 +107,29 @@ module.exports.DeleteEmptyTags = function(redisClient)
         });
 };
 
-var redisClient = redis.createClient();
-Promise.resolve(true)
-    .then(function()
-    {
-        return module.exports.DeleteBadLinks(redisClient);
-    })
-    .then(function(c)
-    {
-        console.log("Deleted " + c + " urls");
-    })
-    .then(function()
-    {
-        return module.exports.MergeSimilarTags(redisClient);
-    })
-    .then(function()
-    {
-        return module.exports.DeleteEmptyTags(redisClient);
-    })
-    .then(function()
-    {
-        redisClient.end();
-    })
-    .catch(console.log);
+if (require.main === module)
+{
+    var redisClient = redis.createClient();
+    Promise.resolve(true)
+        .then(function()
+        {
+            return module.exports.DeleteBadLinks(redisClient);
+        })
+        .then(function(c)
+        {
+            console.log("Deleted " + c + " urls");
+        })
+        .then(function()
+        {
+            return module.exports.MergeSimilarTags(redisClient);
+        })
+        .then(function()
+        {
+            return module.exports.DeleteEmptyTags(redisClient);
+        })
+        .then(function()
+        {
+            redisClient.end();
+        })
+        .catch(console.log);
+}

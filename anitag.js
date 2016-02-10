@@ -64,6 +64,11 @@ module.exports.GetEqualTags = function(tags)
     return result;
 };
 
+module.exports.FuzzyTagName = function(tag)
+{
+    return tag.replace(/#\d+/g, '').replace(/\([^\)]*\)/g, '').replace(/^\~+/g, '').replace(/[@#\$%\^\&\*\(\)\-\=]/g, '');
+};
+
 module.exports.FindBracketTags = function(str)
 {
     var reg = new RegExp(/\[([^\]]+)\]/g);
@@ -74,10 +79,26 @@ module.exports.FindBracketTags = function(str)
         match = reg.exec(str);
         if (match != null)
         {
-            results.push(match[1]);
+            var t = match[1];
+            var tl = t.toLowerCase();
+            if (tl.indexOf("from ") == -1 && tl.indexOf("x-post ") == -1)
+            {
+                t = module.exports.FuzzyTagName(t);
+                if (t.indexOf(',') !== -1)
+                {
+                    results = results.concat(t.split(','));
+                }
+                else
+                {
+                    results = results.concat(t.split('/'));
+                }
+            }
         }
     } while (match != null);
-    return results;
+    return results.map(function(t)
+    {
+        return t.trim();
+    });
 };
 
 module.exports.TagScan = function(tagAlg, tagBlob)

@@ -114,6 +114,7 @@ DB.prototype.UpdateTags = function()
 {
     var self = this;
     var props = ['blob', 'alg', 'link'];
+    var links;
     return self.Ready()
         .then(function()
         {
@@ -139,6 +140,10 @@ DB.prototype.UpdateTags = function()
             var promises = [];
             var alltags = {};
             res = res.reduce(GetSortResultReduce(props), []);
+            links = res.map(function(r)
+            {
+                return r.link;
+            });
             res.forEach(function(r)
             {
                 var tags = anitag.TagScan(r.alg, r.blob);
@@ -162,11 +167,19 @@ DB.prototype.UpdateTags = function()
                 promises.push(self.redisClient.saddAsync(['tag:[' + t + ']:links'].concat(alltags[t])));
             });
             return Promise.all(promises);
+        })
+        .then(function()
+        {
+            return self.AddUntagged(links);
         });
 };
 
 DB.prototype.GetLinks = function(tags, flags, pStart, pLen)
 {
+    if (flags == null)
+    {
+        flags = [];
+    }
     var self = this;
     var tagCombinedKey = 'mtag:[' + tags.join('+') + ']:flags[' + flags.join('+') + ']:links';
     var metaProps = ['src', 'origin', 'updated'];
@@ -249,46 +262,15 @@ DB.prototype.GetLinks = function(tags, flags, pStart, pLen)
         });
 };
 
-DB.prototype.DeleteTags = function(taglist)
+DB.prototype.AddUntagged = function(links)
 {
-    if (taglist.indexOf('untagged') != -1)
-    {
-        taglist.splice(taglist.indexOf('untagged'), 1);
-    }
-    if (taglist.indexOf('all') != -1)
-    {
-        taglist.splice(taglist.indexOf('all'), 1);
-    }
-    if (taglist.length == 0)
-    {
-        return Promise.resolve(true);
-    }
     var self = this;
     return self.Ready()
         .then(function()
         {
-            return self.redisClient.sremAsync('tags', taglist);
-        })
-        .then(function()
-        {
-            return self.GetLinks(taglist, []);
-        })
-        .then(function(links)
-        {
-            return Promise.props({
-                delRes: Promise.map(links, function(v)
-                {
-                    return self.redisClient.sremAsync('link:[' + v.url + ']:tags', taglist);
-                }),
-                links: links
-            });
-        })
-        .then(function(r)
-        {
-            var links = r.links;
-            return Promise.map(links, function(v)
+            return Promise.map(links, function(url)
             {
-                return Promise.props({tagCount: self.redisClient.scardAsync('link:[' + v.url + ']:tags'), url: v.url});
+                return Promise.props({tagCount: self.redisClient.scardAsync('link:[' + url + ']:tags'), url: url});
             });
         })
         .then(function(results)
@@ -303,6 +285,37 @@ DB.prototype.DeleteTags = function(taglist)
                 }
             });
             return Promise.all(promises);
+        });
+};
+
+DB.prototype.DeleteTags = function(taglist)
+{
+    if (taglist.indexOf('all') != -1)
+    {
+        taglist.splice(taglist.indexOf('all'), 1);
+    }
+    if (taglist.length == 0)
+    {
+        return Promise.resolve(true);
+    }
+    var self = this;
+    return self.Ready()
+        .then(function()
+        {
+            return self.GetLinks(taglist);
+        })
+        .then(function(links)
+        {
+            return Promise.props({
+                delRes: Promise.map(links, function(v)
+                {
+                    return self.redisClient.sremAsync('link:[' + v.url + ']:tags', taglist);
+                })
+            });
+        })
+        .then(function()
+        {
+            return self.redisClient.sremAsync('tags', taglist);
         })
         .then(function()
         {
@@ -320,6 +333,7 @@ DB.prototype.DeleteTags = function(taglist)
 DB.prototype.MergeTags = function(tag, taglist)
 {
     var self = this;
+    var links;
     if (taglist.indexOf(tag) != -1)
     {
         taglist.splice(taglist.indexOf(tag), 1);
@@ -340,16 +354,21 @@ DB.prototype.MergeTags = function(tag, taglist)
         {
             return self.redisClient.smembersAsync('tag:[' + tag + ']:links');
         })
-        .then(function(links)
+        .then(function(l)
         {
+            links = l;
             return Promise.map(links, function(l)
             {
-                return self.redisClient.saddAsync('link:[' + l + ']:tags', tag);
+                return Promise.props({link: l, res: self.redisClient.saddAsync('link:[' + l + ']:tags', tag)});
             });
+        })
+        .then(function(r)
+        {
+            return self.DeleteTags(taglist);
         })
         .then(function()
         {
-            return self.DeleteTags(taglist);
+            return self.AddUntagged(links);
         })
 };
 
