@@ -21,13 +21,35 @@
             </ul>
         </div>
         <div id="options" class="col-xs-2">
-            <div class="checkbox">
-                <label style="line-height:19px;margin-right: 10px;"><input type="checkbox" value="" onclick="Cookies.set('isAdult', this.checked);location.reload();" {{{selectText cookies.isAdult 'true' 'checked="true"' ''}}}>18+ Content</label>
-                <label style="line-height:19px"><input type="checkbox" value="" onclick="Cookies.set('iWantPorn', this.checked);location.reload();" {{{selectText cookies.iWantPorn 'true' 'checked="true"' ''}}}>Literally Porn</label>
+            <div id="filter-dropdown" class="dropdown">
+                <button class="btn btn-default dropdown-toggle" type="button" id="menu1" data-toggle="dropdown"><span
+                        class="btn-text"></span><span class="caret"></span></button>
+                <ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
+                    <li role="presentation" id="unfiltered-opt"><a role="menuitem"
+                                                                   onclick="Cookies.set('isAdult', 'false');Cookies.set('iWantPorn', 'false');location.reload();"
+                                                                   href="#">Moe Only</a></li>
+                    <li role="presentation" id="isadult-opt"><a role="menuitem"
+                                                                onclick="Cookies.set('isAdult', 'true');location.reload();"
+                                                                href="#">18+</a></li>
+                    <li role="presentation" id="iwantporn-opt"><a role="menuitem"
+                                                                  onclick="Cookies.set('iWantPorn', 'true');location.reload();"
+                                                                  href="#">Literally Porn</a></li>
+                </ul>
             </div>
         </div>
     </div>
 </nav>
 {{{body}}}
+<script>
+    jQuery(document).ready(function($)
+    {
+        var selected = Cookies.get('iWantPorn') == "true" ? $("#filter-dropdown li#iwantporn-opt a").text() : Cookies.get('isAdult') == "true" ? $("#filter-dropdown li#isadult-opt a").text() : $("#filter-dropdown li#unfiltered-opt a").text();
+        $("#filter-dropdown button .btn-text").text(selected);
+        $("#filter-dropdown li").on("click", function()
+        {
+            $("#filter-dropdown button .btn-text").text($(this).text());
+        });
+    });
+</script>
 </body>
 </html>
