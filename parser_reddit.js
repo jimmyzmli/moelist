@@ -256,7 +256,7 @@ module.exports.LoadRedditLinks = function(redisClient, subreddit, flags)
             });
     });
 };
-var redisClient = redis.createClient();
+var redisClient = redis.createClient(6379, 'db.lizen.org');
 var subReddits = {
     'awwnime': [],
     'headpats': [],

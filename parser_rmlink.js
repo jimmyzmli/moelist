@@ -9,7 +9,7 @@ var fs = Promise.promisifyAll(require('fs'));
 Promise.promisifyAll(redis.RedisClient.prototype);
 Promise.promisifyAll(redis.Multi.prototype);
 
-var redisClient = redis.createClient();
+var redisClient = redis.createClient(6379, 'db.lizen.org');
 Promise.longStackTraces();
 var db = new DB(redisClient);
 Promise.resolve(true)

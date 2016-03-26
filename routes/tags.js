@@ -9,7 +9,7 @@ Promise.promisifyAll(redis.Multi.prototype);
 
 router.all('/taglist/', function(req, res, next)
 {
-    var redisClient = redis.createClient();
+    var redisClient = redis.createClient(6379, 'db.lizen.org');
     var db = new DB(redisClient);
     db.Ready()
         .then(function()
@@ -52,7 +52,7 @@ router.all('/taglist/', function(req, res, next)
 
 router.all(/^\/tag\/([^\/]+)(?:$|\/.*$)/, function(req, res, next)
 {
-    var redisClient = redis.createClient();
+    var redisClient = redis.createClient(6379, 'db.lizen.org');
     var db = new DB(redisClient);
     var tags = req.params[0].split('+');
     var page = 0;

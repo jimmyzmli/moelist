@@ -109,7 +109,7 @@ module.exports.DeleteEmptyTags = function(redisClient)
 
 if (require.main === module)
 {
-    var redisClient = redis.createClient();
+    var redisClient = redis.createClient(6379, 'db.lizen.org');
     Promise.resolve(true)
         .then(function()
         {
