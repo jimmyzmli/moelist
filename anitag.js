@@ -171,19 +171,14 @@ module.exports.FindBracketTags = function(str)
                             var res = nameSet.get(t);
                             if (res != null && res.length > 0)
                             {
-                                res = module.exports.GetStdTag(res[0][1]);
-                                if (res == "?")
+                                if (res[0][0] >= 0.6)
                                 {
-                                    console.log(nameSet.get(t));
+                                    res = module.exports.GetStdTag(res[0][1]);
+                                    return res;
                                 }
-                                return res;
                             }
-                            return null;
                         }
-                        else
-                        {
-                            return null;
-                        }
+                        return null;
                     }).filter(function(t)
                     {
                         return t != null;
