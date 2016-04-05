@@ -171,6 +171,18 @@ module.exports.FindBracketTags = function(str)
                             var res = nameSet.get(t);
                             if (res != null && res.length > 0)
                             {
+                                if (["Sengoku Collection", "Youshou", "Idol\u2606Sister"].indexOf(res[0][1]) != -1)
+                                {
+                                    res[0][0] -= 2.5;
+                                }
+                                if (["GATE", "GATE 2"].indexOf(res[0][1]) != -1)
+                                {
+                                    res[0][0] -= 1;
+                                }
+                                res.sort(function(a, b)
+                                {
+                                    return a[0] - b[0];
+                                });
                                 if (res[0][0] >= 0.6)
                                 {
                                     res = module.exports.GetStdTag(res[0][1]);
