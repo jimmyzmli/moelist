@@ -267,9 +267,8 @@ module.exports.Run = function(redisClient)
         'ecchi': ['18+', 'porn'],
         'sukebei': ['18+', 'porn']
     };
-    Promise.map(Object.keys(subReddits), function(sub)
+    return Promise.map(Object.keys(subReddits), function(sub)
         {
             return module.exports.LoadRedditLinks(redisClient, sub, subReddits[sub]);
         })
-        .catch(console.log)
 };
