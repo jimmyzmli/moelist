@@ -72,7 +72,7 @@ if (app.get('env') === 'development')
  });
  */
 
-app.listen(3001, function()
+app.listen(3001, '127.0.0.1', function()
 {
     console.log("server started...");
 });
