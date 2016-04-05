@@ -87,8 +87,11 @@ DB.prototype.AddLink = function(url, tagBlob, tagAlg, flags, src, srcLink, updat
     return self.Ready()
         .then(function()
         {
+            return anitag.TagScan(tagAlg, tagBlob);
+        })
+        .then(function(tags)
+        {
             var promises = [];
-            var tags = anitag.TagScan(tagAlg, tagBlob);
             promises.push(self.redisClient.saddAsync('tag:[all]:links', url));
             promises.push(self.redisClient.hmsetAsync('link:[' + url + ']:meta', 'src', src, 'origin', srcLink, 'updated', updated));
             promises.push(self.redisClient.hmsetAsync('link:[' + url + ']:tagmeta', 'blob', tagBlob, 'alg', tagAlg));
@@ -144,33 +147,45 @@ DB.prototype.UpdateTags = function()
             {
                 return r.link;
             });
-            res.forEach(function(r)
-            {
-                var tags = anitag.TagScan(r.alg, r.blob);
-                if (tags.length == 0)
+            return Promise.props({
+                promises: promises,
+                alltags: alltags,
+                links: links,
+                result: Promise.map(res, function(r)
                 {
-                    tags.push('untagged');
-                }
-                promises.push(self.redisClient.multi().del('link:[' + r.link + ']:tags').sadd(['link:[' + r.link + ']:tags'].concat(tags)).execAsync());
-                tags.forEach(function(t)
-                {
-                    if (alltags[t] == null)
+                    return anitag.TagScan(r.alg, r.blob).then(function(tags)
                     {
-                        alltags[t] = [];
-                    }
-                    alltags[t].push(r.link);
-                });
+                        if (tags.length == 0)
+                        {
+                            tags.push('untagged');
+                        }
+                        promises.push(self.redisClient.multi().del('link:[' + r.link + ']:tags').sadd(['link:[' + r.link + ']:tags'].concat(tags)).execAsync());
+                        tags.forEach(function(t)
+                        {
+                            if (alltags[t] == null)
+                            {
+                                alltags[t] = [];
+                            }
+                            alltags[t].push(r.link);
+                        });
+                    });
+                })
             });
+        })
+        .then(function(r)
+        {
+            var promises = r.promises;
+            var alltags = r.alltags;
             promises.push(self.redisClient.saddAsync(['tags'].concat(Object.keys(alltags))));
             Object.keys(alltags).forEach(function(t)
             {
                 promises.push(self.redisClient.saddAsync(['tag:[' + t + ']:links'].concat(alltags[t])));
             });
-            return Promise.all(promises);
+            return Promise.props({links: r.links, res: Promise.all(promises)});
         })
-        .then(function()
+        .then(function(r)
         {
-            return self.AddUntagged(links);
+            return self.AddUntagged(r.links);
         });
 };
 

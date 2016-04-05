@@ -1,12 +1,9 @@
 var http = require('http');
 var Promise = require('bluebird');
-var redis = require('redis');
 var linkfilter = require('./link');
 var DB = require('./db');
 var Entities = require('html-entities').XmlEntities;
 
-Promise.promisifyAll(redis.RedisClient.prototype);
-Promise.promisifyAll(redis.Multi.prototype);
 var entities = new Entities();
 
 var PromiseRequest = Promise.method(
@@ -256,24 +253,23 @@ module.exports.LoadRedditLinks = function(redisClient, subreddit, flags)
             });
     });
 };
-var redisClient = redis.createClient(6379, 'db.lizen.org');
-var subReddits = {
-    'awwnime': [],
-    'headpats': [],
-    'imouto': [],
-    'ZettaiRyouiki': [],
-    'k_on': [],
-    'animelegs': ['18+'],
-    'pantsu': ['18+'],
-    'ecchi': ['18+', 'porn'],
-    'sukebei': ['18+', 'porn']
+
+module.exports.Run = function(redisClient)
+{
+    var subReddits = {
+        'awwnime': [],
+        'headpats': [],
+        'imouto': [],
+        'ZettaiRyouiki': [],
+        'k_on': [],
+        'animelegs': ['18+'],
+        'pantsu': ['18+'],
+        'ecchi': ['18+', 'porn'],
+        'sukebei': ['18+', 'porn']
+    };
+    Promise.map(Object.keys(subReddits), function(sub)
+        {
+            return module.exports.LoadRedditLinks(redisClient, sub, subReddits[sub]);
+        })
+        .catch(console.log)
 };
-Promise.map(Object.keys(subReddits), function(sub)
-    {
-        return module.exports.LoadRedditLinks(redisClient, sub, subReddits[sub]);
-    })
-    .catch(console.log)
-    .finally(function()
-    {
-        redisClient.end();
-    });

@@ -20,12 +20,13 @@ Promise.resolve(true)
                 return db.UpdateTags();
             })
     })
+    /*
     .then(function()
     {
         return adjustdb.MergeSimilarTags(redisClient);
     })
+     */
     .then(function()
     {
         redisClient.end();
-    })
-    .catch(console.log);
+    });

@@ -1,8 +1,50 @@
+var Promise = require("bluebird");
+var fs = Promise.promisifyAll(require("fs"));
+
 var FuzzySet = require('fuzzyset.js');
 var levenshtein = require('fast-levenshtein');
 
 var common = ['iDOLMSTER', 'iDOLMASTER', 'Original', 'Fire Emblem', 'Fate', 'Yu-Gi-Oh!', 'Utawareru Mono', 'Monogatari', 'Love Live!', 'K-ON'];
 var rejectMap = {'gate': ['fate'], 'lol': ['k-on', 'k-on!', 'k-on!!']};
+
+var namePairs;
+var nameSet;
+
+function LoadLists()
+{
+    if (namePairs == null)
+    {
+        return Promise.all([
+            fs.readFileAsync(__dirname + "/data/anime_names.json")
+                .then(function(data)
+                {
+                    namePairs = JSON.parse(data);
+                }),
+            fs.readFileAsync(__dirname + "/data/anime_namesflat.json")
+                .then(function(data)
+                {
+                    nameSet = FuzzySet(JSON.parse(data));
+                })]);
+    }
+    else
+    {
+        return Promise.resolve();
+    }
+}
+
+
+module.exports.GetStdTag = function(tag)
+{
+    for (i in namePairs)
+    {
+        var p = namePairs[i];
+        if (p.indexOf(tag) != -1)
+        {
+            return p[p.length - 2];
+        }
+    }
+    return null;
+};
 
 module.exports.GetBestTag = function(tags)
 {
@@ -93,71 +135,73 @@ module.exports.FuzzyTagName = function(tag)
 
 module.exports.FindBracketTags = function(str)
 {
-    var reg = new RegExp(/\[([^\]]+)\]/g);
-    var results = [];
-    var match;
-    do
+    return LoadLists().then(function()
     {
-        match = reg.exec(str);
-        if (match != null)
+        var reg = new RegExp(/\[([^\]]+)\]/g);
+        var results = [];
+        var match;
+        do
         {
-            var t = match[1];
-            var tl = t.toLowerCase();
-            var tlns = tl.replace(/\s+/g, '');
-            var newTags;
-            if (str.indexOf(t) > 0 && tl.indexOf("from ") == -1 && tl.indexOf("x-post ") == -1 && tl.indexOf('xpost') == -1)
+            match = reg.exec(str);
+            if (match != null)
             {
-                if (tl.indexOf(' x ') != -1)
+                var t = match[1];
+                var tl = t.toLowerCase();
+                var tlns = tl.replace(/\s+/g, '');
+                var newTags;
+                if (str.indexOf(t) > 0 && tl.indexOf("from ") == -1 && tl.indexOf("x-post ") == -1 && tl.indexOf('xpost') == -1)
                 {
-                    newTags = results.concat(t.split(' x ')).concat(t.split(' X '));
-                }
-                else if (t.indexOf('/') != -1 && tlns.indexOf('fate/') == -1)
-                {
-                    newTags = results.concat(t.split('/'));
-                }
-                else
-                {
-                    newTags = results.concat(t.split(','));
-                }
-                newTags = newTags.map(function(t)
-                {
-                    var tl = t.toLowerCase();
-                    if (tl.indexOf("from ") == -1 && tl.indexOf("x-post ") == -1 && tl.indexOf('xpost') == -1)
+                    if (tl.indexOf(' x ') != -1)
                     {
-                        t = module.exports.FuzzyTagName(t);
-                        common.forEach(function(n)
-                        {
-                            if (t.toLowerCase().indexOf(n.toLowerCase()) != -1)
-                            {
-                                t = n;
-                            }
-                        });
-                        return t;
+                        newTags = results.concat(t.split(' x ')).concat(t.split(' X '));
+                    }
+                    else if (t.indexOf('/') != -1 && tlns.indexOf('fate/') == -1)
+                    {
+                        newTags = results.concat(t.split('/'));
                     }
                     else
                     {
-                        return null;
+                        newTags = results.concat(t.split(','));
                     }
-                }).filter(function(t)
-                {
-                    return t != null;
-                });
-                results = results.concat(newTags);
+                    newTags = newTags.map(function(t)
+                    {
+                        var tl = t.toLowerCase();
+                        if (tl.indexOf("from ") == -1 && tl.indexOf("x-post ") == -1 && tl.indexOf('xpost') == -1)
+                        {
+                            var res = nameSet.get(t);
+                            if (res != null && res.length > 0)
+                            {
+                                res = module.exports.GetStdTag(res[0][1]);
+                                if (res == "?")
+                                {
+                                    console.log(nameSet.get(t));
+                                }
+                                return res;
+                            }
+                            return null;
+                        }
+                        else
+                        {
+                            return null;
+                        }
+                    }).filter(function(t)
+                    {
+                        return t != null;
+                    });
+                    results = results.concat(newTags);
+                }
             }
-        }
-    } while (match != null);
-    return results.map(function(t)
-    {
-        return t.trim();
+        } while (match != null);
+        return results.map(function(t)
+        {
+            return t.trim();
+        });
     });
 };
 
 module.exports.TagScan = function(tagAlg, tagBlob)
 {
-    return module.exports.FindBracketTags(tagBlob);
+    return Promise.resolve(module.exports.FindBracketTags(tagBlob));
 };
 
-if (require.main === module)
-{
-    console.log(module.exports.FindBracketTags('Uncomplicated Senjougahara. [Monogatari series] '));
-}
+LoadLists();
