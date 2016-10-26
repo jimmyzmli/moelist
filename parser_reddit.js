@@ -1,4 +1,3 @@
-var http = require('http');
 var Promise = require('bluebird');
 var linkfilter = require('./link');
 var DB = require('./db');
@@ -6,43 +5,55 @@ var Entities = require('html-entities').XmlEntities;
 
 var entities = new Entities();
 
-var PromiseRequest = Promise.method(
-    function(options)
+const getContent = function(url)
+{
+    // return new pending promise
+    return new Promise(function(resolve, reject)
     {
-        // Promisify http.request
-        return new Promise(function(resolve, reject)
+        // select http or https module, depending on reqested url
+        const lib = url.startsWith('https') ? require('https') : require('http');
+        const request = lib.get(url, function(response)
         {
-            var request = http.request(options, function(response)
+            // follow redirect
+            if (response.statusCode == 301)
             {
-                // Bundle the result
-                var result = {
-                    'httpVersion': response.httpVersion,
-                    'statusCode': response.statusCode,
-                    'headers': response.headers,
-                    'body': '',
-                    'trailers': response.trailers
-                };
+                resolve(getContent(response.headers['location']));
+            }
 
-                // Build the body
-                response.on('data', function(chunk)
+            // handle http errors
+            if (response.statusCode < 200 || response.statusCode > 299)
+            {
+                reject(new Error('Failed to load page, status code: ' + response.statusCode + ' [' + url + ']'));
+            }
+            // temporary data holder
+            const body = [];
+            // on every content chunk, push it to the data array
+            response.on('data', function(chunk)
                 {
-                    result.body += chunk;
-                });
-                response.on('end', function()
+                    body.push(chunk)
+                }
+            );
+            // we are done, resolve promise with those joined chunks
+            response.on('end', function()
                 {
+                    var result = {
+                        'httpVersion': response.httpVersion,
+                        'statusCode': response.statusCode,
+                        'headers': response.headers,
+                        'body': body.join(''),
+                        'trailers': response.trailers
+                    };
                     resolve(result);
-                });
-            });
-
-            // Handle errors
-            request.on('error', function(error)
-            {
-                reject(error);
-            });
-
-            request.end();
+                }
+            );
+        });
+        // handle connection errors of the request
+        request.on('error', function(err)
+        {
+            reject(err)
         });
     });
+};
 
 function FetchLinks(subName, type, timeFrame, getNextLinkCb)
 {
@@ -52,31 +63,19 @@ function FetchLinks(subName, type, timeFrame, getNextLinkCb)
         var results = [];
         return (function MakeRequest(nextLink)
         {
-            PromiseRequest({
-                host: 'www.reddit.com',
-                port: 80,
-                path: '/r/' + subName + '/' + type + '.json?t=' + timeFrame + '&show=all&limit=100&' + (nextLink == null ? '' : nextLink),
-                method: 'GET'
-            })
+            getContent('https://www.reddit.com' + '/r/' + subName + '/' + type + '.json?t=' + timeFrame + '&show=all&limit=100&' + (nextLink == null ? '' : nextLink))
                 .then(function(resp)
                 {
-                    if (resp['statusCode'] == 200)
+                    var respObj = JSON.parse(resp['body']);
+                    results = results.concat(respObj.data.children);
+                    if (respObj.data != null && respObj.data.after != null)
                     {
-                        var respObj = JSON.parse(resp['body']);
-                        results = results.concat(respObj.data.children);
-                        if (respObj.data != null && respObj.data.after != null)
-                        {
-                            MakeRequest(getNextLinkCb(respObj));
-                        }
-                        else
-                        {
-                            // Finished requests
-                            resolve(results);
-                        }
+                        MakeRequest(getNextLinkCb(respObj));
                     }
                     else
                     {
-                        reject('HTTP error status code ' + resp['statusCode']);
+                        // Finished requests
+                        resolve(results);
                     }
                 })
                 .catch(function(error)
@@ -117,47 +116,23 @@ function IsPostAlive(subName, postId)
 {
     return new Promise(function(resolve, reject)
     {
-        return PromiseRequest({
-            host: 'www.reddit.com',
-            port: 80,
-            path: '/r/' + subName + '/new.json?t=all&show=all&limit=1&' + 'before=' + postId,
-            method: 'GET'
-        })
+        return getContent('https://www.reddit.com' + '/r/' + subName + '/new.json?t=all&show=all&limit=1&' + 'before=' + postId)
             .then(function(resp)
             {
-                if (resp['statusCode'] == 200)
+                var respObj = JSON.parse(resp['body']);
+                if (respObj.data.children.length == 0)
                 {
-                    var respObj = JSON.parse(resp['body']);
-                    if (respObj.data.children.length == 0)
-                    {
-                        return PromiseRequest({
-                            host: 'www.reddit.com',
-                            port: 80,
-                            path: '/r/' + subName + '/new.json?t=all&show=all&limit=1&' + 'after=' + postId,
-                            method: 'GET'
-                        });
-                    }
-                    else
-                    {
-                        resolve(true);
-                    }
+                    return getContent('https://www.reddit.com' + '/r/' + subName + '/new.json?t=all&show=all&limit=1&' + 'after=' + postId);
                 }
                 else
                 {
-                    reject('Cannot reach Reddit');
+                    resolve(true);
                 }
             })
             .then(function(resp)
             {
-                if (resp['statusCode'] == 200)
-                {
-                    var respObj = JSON.parse(resp['body']);
-                    resolve(respObj.data.children.length != 0);
-                }
-                else
-                {
-                    reject('Cannot reach Reddit');
-                }
+                var respObj = JSON.parse(resp['body']);
+                resolve(respObj.data.children.length != 0);
             })
             .catch(function(err)
             {
@@ -199,7 +174,7 @@ module.exports.LoadRedditLinks = function(redisClient, subreddit, flags)
                                 return redisClient.lpopAsync(beforeKey)
                                     .then(function()
                                     {
-                                        return module.exports.LoadRedditLinks(redisClient);
+                                        return module.exports.LoadRedditLinks(redisClient, subreddit, flags);
                                     })
                                     .then(function()
                                     {
@@ -268,7 +243,7 @@ module.exports.Run = function(redisClient)
         'sukebei': ['18+', 'porn']
     };
     return Promise.map(Object.keys(subReddits), function(sub)
-        {
-            return module.exports.LoadRedditLinks(redisClient, sub, subReddits[sub]);
-        })
+    {
+        return module.exports.LoadRedditLinks(redisClient, sub, subReddits[sub]);
+    })
 };
